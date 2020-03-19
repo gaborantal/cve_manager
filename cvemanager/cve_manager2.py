@@ -1,16 +1,10 @@
 #!/usr/bin/python
 #check out the ~/.pgpass file to store password securely and not in the source code (http://www.postgresql.org/docs/9.2/static/libpq-pgpass.html). libpq, the postgresql client librairy, check for this file to get proper login information.
 
-import psycopg2
-from psycopg2 import Error
 from psycopg2 import connect
-import sys
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import os
 from os import listdir
-from os.path import isfile, join, exists
-from os import makedirs
-import argparse
+from os.path import isfile, join
 import zipfile
 import json
 import requests
@@ -218,28 +212,7 @@ def process_cves(directory, results, csv, import_db, myuser, mypassword, myhost,
                 f.close()
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='CVEs Manager.') # version='0.1'
-    parser.add_argument('-p', '--parse',  action="store_true", dest="process", default=False, help="Process downloaded CVEs.")
-    parser.add_argument('-d', '--download',  action="store_true", dest="download", default=False, help="Download CVEs.")
-    parser.add_argument('-y', '--year',  action="store", dest="year", default=False, help="The year for which CVEs shall be downloaded (e.g. 2019)")
-    parser.add_argument('-csv', '--cvs_files',  action="store_true", dest="csv", default=False, help="Create CSVs files.")
-    parser.add_argument('-idb', '--import_to_db',  action="store_true", dest="idb", default=False, help="Import CVEs into a database.")
-    parser.add_argument('-i', '--input', action="store", default = 'nvd/', dest="input", help="The directory where NVD json files will been downloaded, and the one from where they will be parsed (default: nvd/")
-    parser.add_argument('-o', '--output', action="store", default = 'results/', dest="results", help="The directory where the csv files will be stored (default: results/")
-    parser.add_argument('-u', '--user',  action="store", dest="user", default="postgres", help="The user to connect to the database.")
-    parser.add_argument('-ow', '--owner',  action="store", dest="owner", default=None, help="The owner of the database (if different from the connected user).")
-    parser.add_argument('-ps', '--password',  action="store", dest="password", default="", help="The password to connect to the database.")
-    parser.add_argument('-host', '--host',  action="store", dest="host", default="localhost", help="The host or IP of the database server.")
-    parser.add_argument('-db', '--database',  action="store", dest="database", default="postgres", help="The name of the database.")
-    parser.add_argument('-cd', '--create_database',  action="store_true", dest="cd", default=False, help="Create the database")
-    parser.add_argument('-dd', '--drop_database',  action="store_true", dest="dd", default=False, help="Drop the database")
-    parser.add_argument('-ct', '--create_tables',  action="store_true", dest="ct", default=False, help="Create the tables of the database")
-    parser.add_argument('-tr', '--truncate_cves_tables',  action="store_true", dest="tr", default=False, help="Truncate the CVEs-related tables")
-    parser.add_argument('-cve', '--cvs_number',  action="store", dest="cve", default=None, help="Print info for a CVE (CVSS score and other)")
-    parser.add_argument('-sc', '--score',  action="store", dest="score", default=0.0, help="Use base score of a CVE as a selection criterion")
-    parser.add_argument('-dt', '--date',  action="store", dest="date", default=1999, help="Use publication date of a CVE as a selection criterion")
-    values = parser.parse_args()
+def manage_cves(values):
 
     if not values.owner:
         values.owner = values.user
@@ -255,7 +228,7 @@ if __name__ == '__main__':
         process_cves(values.input, values.results, values.csv, values.idb, values.user, values.password, values.host, values.database)
     if values.tr: 
         db.truncate_database(values.user, values.password, values.host, values.database)
-    if values.cve:
+    if values.cve or values.score is not -1 or values.date is not -1:
         db.execute_query(values.user, values.password, values.host, values.database, values.cve, values.score, values.date)
     if not values.input and not values.process and not values.dd and not values.cd and not values.ct and not values.download and not values.process and not values.tr and not values.cve:
         print("Choose an option (check --help)")

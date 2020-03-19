@@ -128,22 +128,29 @@ def truncate_database(myuser, mypassword, myhost, database):
 
 
 def execute_query(myuser, mypassword, myhost, database, cve, score, date):
+    query = "SELECT cve, vector_string_3, base_score_3, base_severity_3, vector_string, base_score, severity, description, published_date FROM cvss WHERE base_score_3 > %s AND date_part('year', published_date) >= %s"
+
+    if cve:
+        query = query + " AND cve LIKE %s"
+
+
     with connect(dbname=database, user=myuser, host=myhost, password=mypassword) as con:
         with con.cursor() as cur:
             print("Executing query")
             try:
                 if cve:
-                    query = "SELECT cve, vector_string_3, base_score_3, base_severity_3, vector_string, base_score, severity, description, published_date FROM cvss WHERE cve LIKE %s"
                     cve = '%' + cve + '%'
-                    cur.execute(query, (cve,))
-                    selected_cve = cur.fetchone()
-                    answer = ""
-                    for r in selected_cve:
-                        if type(r) is str:
-                            answer = answer + r.strip() + "\t"
-                        else:
-                            answer = answer + str(r) + "\t"
-                    answer = answer.rstrip('\t')
-                    print(answer)
+                    cur.execute(query, (score, date, cve))
+                else:
+                    cur.execute(query, (score, date))
+                selected_cve = cur.fetchone()
+                answer = ""
+                for r in selected_cve:
+                    if type(r) is str:
+                        answer = answer + r.strip() + "\t"
+                    else:
+                        answer = answer + str(r) + "\t"
+                answer = answer.rstrip('\t')
+                print(answer)
             except(Exception, psycopg2.DatabaseError) as error:
                 print("Error while Querying Database", error)
