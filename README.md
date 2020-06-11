@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/gaborantal/cve_manager.svg?branch=master)](https://travis-ci.org/gaborantal/cve_manager)
+
 # cve_manager
 A python script that:
 
