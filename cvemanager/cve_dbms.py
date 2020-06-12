@@ -1,3 +1,4 @@
+import io
 import psycopg2
 from psycopg2 import connect
 from psycopg2 import sql
@@ -59,7 +60,10 @@ CREATE TABLE public.cpe (
 --
 CREATE TABLE public.cve_problem (
     cve character(20) NOT NULL,
-    problem text
+    problem text,
+    published_date date,
+    severity character(10),
+    impact_score real
 );
 --ALTER TABLE public.cve_problem OWNER TO atlas;
 
@@ -104,6 +108,35 @@ def create_tables(myuser, mypassword, myhost, database):
                 print("Error while creating tables", error)
         con.commit()
 
+def import_database(results, myuser, mypassword, myhost, database):
+    print('Connecting to the PostgreSQL database...')
+    with connect(dbname=database, user=myuser, host=myhost, password=mypassword) as con:
+        with con.cursor() as cur:
+            filename = results + "cve_cvss_scores.csv"
+            with open(filename, 'r', encoding="utf-8") as f:
+                print("importing CVSS")
+                filedata = f.read()
+                filedata = filedata.replace("\\", "\\\\")
+                output = io.StringIO()
+                output.write(filedata)
+                output.seek(0)
+                output.readline()
+                cur.copy_from(output, 'cvss', sep='\t', null="")
+            con.commit()
+            filename = results+"cve_related_problems.csv"
+            with open(filename, 'r', encoding="utf-8") as f:
+                print("importing CVE-related problems")
+                f.readline()
+                cur.copy_from(f, 'cve_problem', sep='\t', null="")
+            con.commit()
+            f.close()
+            filename = results + "cve_cpes.csv"
+            with open(filename, 'r', encoding="utf-8") as f:
+                print("importing CVEs vs CPEs")
+                f.readline()
+                cur.copy_from(f, 'cpe', sep='\t', columns=('cve', 'cpe22uri', 'cpe23uri', 'vulnerable'))
+            con.commit()
+
 def drop_database(myuser, mypassword, myhost, database):
     with connect(dbname="postgres", user=myuser, host=myhost, password=mypassword) as con:
         con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
@@ -127,30 +160,70 @@ def truncate_database(myuser, mypassword, myhost, database):
         con.commit()
 
 
-def execute_query(myuser, mypassword, myhost, database, cve, score, date):
-    query = "SELECT cve, vector_string_3, base_score_3, base_severity_3, vector_string, base_score, severity, description, published_date FROM cvss WHERE base_score_3 > %s AND date_part('year', published_date) >= %s"
+def execute_query(myuser, mypassword, myhost, database, cve=None, score=None, date=None, out=False):
+    query = "SELECT cve, vector_string_3, base_score_3, base_severity_3, vector_string, base_score, severity, description, published_date FROM cvss WHERE date_part('year', published_date) >= %s"
 
+    args = list()
+    args.append(date)
+
+    if score:
+        query = query + "AND base_score_3 > %s"
+        args.append(score)
     if cve:
         query = query + " AND cve LIKE %s"
+        cve = '%' + cve + '%'
+        args.append(cve)
 
+    selected_cves = list()
 
     with connect(dbname=database, user=myuser, host=myhost, password=mypassword) as con:
         with con.cursor() as cur:
             print("Executing query")
             try:
-                if cve:
-                    cve = '%' + cve + '%'
-                    cur.execute(query, (score, date, cve))
-                else:
-                    cur.execute(query, (score, date))
-                selected_cve = cur.fetchone()
-                answer = ""
-                for r in selected_cve:
-                    if type(r) is str:
-                        answer = answer + r.strip() + "\t"
-                    else:
-                        answer = answer + str(r) + "\t"
-                answer = answer.rstrip('\t')
-                print(answer)
+                cur.execute(query, tuple(args))
+                selected_cves = cur.fetchall()
+
+                if out:
+                    for cve in selected_cves:
+                        answer = ""
+                        for r in cve:
+                            if type(r) is str:
+                                answer = answer + r.strip() + "\t"
+                            else:
+                                answer = answer + str(r) + "\t"
+                        answer = answer.rstrip('\t')
+                        print(answer)
+
+
             except(Exception, psycopg2.DatabaseError) as error:
                 print("Error while Querying Database", error)
+
+
+    return selected_cves
+
+def query_for_cwe(myuser, mypassword, myhost, database, cve, out=False):
+    query = "SELECT * FROM cve_problem WHERE cve = %s"
+
+    selected_cwe = None
+
+    with connect(dbname=database, user=myuser, host=myhost, password=mypassword) as con:
+        with con.cursor() as cur:
+            try:
+                cur.execute(query, (cve, ))
+                selected_cwe = cur.fetchall()
+
+                if out:
+                    for cwe in selected_cwe:
+                        answer = ""
+                        for r in cwe:
+                            if type(r) is str:
+                                answer = answer + r.strip() + "\t"
+                            else:
+                                answer = answer + str(r) + "\t"
+                        answer = answer.rstrip('\t')
+                        print(answer)
+
+            except(Exception, psycopg2.DatabaseError) as error:
+                print("Error while Querying Database", error)
+
+    return selected_cwe

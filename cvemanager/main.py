@@ -1,5 +1,6 @@
 import argparse
-import cve_manager2
+
+from . import cve_manager
 
 def main():
     parser = argparse.ArgumentParser(description='CVEs Manager.')  # version='0.1'
@@ -20,11 +21,12 @@ def main():
     parser.add_argument('-ct', '--create_tables', action="store_true", dest="ct", default=False, help="Create the tables of the database")
     parser.add_argument('-tr', '--truncate_cves_tables', action="store_true", dest="tr", default=False, help="Truncate the CVEs-related tables")
     parser.add_argument('-cve', '--cvs_number', action="store", dest="cve", default=None, help="Print info for a CVE (CVSS score and other)")
-    parser.add_argument('-sc', '--score', action="store", dest="score", default=-1, help="Use base score of a CVE as a selection criterion")
+    parser.add_argument('-sc', '--score', action="store", dest="score", default=None, help="Use base score of a CVE as a selection criterion")
     parser.add_argument('-dt', '--date', action="store", dest="date", default=-1, help="Use publication date of a CVE as a selection criterion")
+    parser.add_argument('-cwe', '--cwe', action="store", dest="cwe", default=None, help="Query for cwe group of specified cve")
     values = parser.parse_args()
 
-    cve_manager2.manage_cves(values)
+    cve_manager.manage_cves(values)
 
 if __name__ == '__main__':
     main()

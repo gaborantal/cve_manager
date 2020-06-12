@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="cvemanager",
-    version="0.0.1",
+    version="0.0.6",
     author="Gabor Antal",
     author_email="antalgabor1993@gmail.com",
     description="A script for managing cves",
